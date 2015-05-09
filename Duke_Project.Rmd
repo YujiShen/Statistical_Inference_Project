@@ -1,0 +1,241 @@
+---
+title: "A General Study About Americans' Attitude To Sex"
+author: "Yuji Shen"
+date: "Apr 15, 2015"
+output:
+  html_document:
+    theme: cerulean
+---
+
+```{r knitr.setting,echo=FALSE}
+options(width=120)
+knitr::opts_chunk$set(warning = FALSE,
+                      message = FALSE,
+                      echo = FALSE,
+                      fig.align='center')
+```
+
+```{r,echo=FALSE,message=F}
+setwd('/Users/Yuji/Workspace/R/Duke Statistics')
+load("statistics-project-gss.Rdata")
+load('inference.Rdata')
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+```
+
+## 1. Introduction
+Sex, or say attitude to sex is an interesting social topic. Sexual Revolution is a well-known movement that impacted the Western world from the 1960s to the 1980s. Here I want to explore and make inference about Americans' attitude to question "sex with person other than spouse" (or say Extramarital Sex),  companied with some comparison with question "sex before marriage" (or say Premarital Sex). More specifically, three topics I will discuss in this study as following:
+
+1. There are many factors correlating with the attitude to sex. **Does there appear to be a relationship between education degree and attitude to "sex with person other than spouse"?**
+
+2. To check the impact of sexual revolution, I am interested in **whether the Americans change their attitude towards sex significantly in recent 40 years?**
+
+3. A comparison between two different questions: **"sex with person other than spouse" v.s "sex before marriage".** Actually I will put some comparison graphs in first two sections for reference.
+
+## 2. Data
+#### Description
+The data I use is *General Social Survey Cumulative File, 1972-2012 Coursera Extract*. It is collected by mainly using stratifying sampling, which is a method of random sampling and will guarantee generalizability of this study. But because this is an observational study (survey), it cannot ensure the causality of the result. This survey includes 57061 residents of United States, so the cases are the residents of United States. 
+
+All three variables I am interested in are categorical variables (ordinal variables).
+
+* `degree`: Respondents' highest degree.
+* `xmarsex`: Respondents' answer to the question "What is yoru opinion about a married person having sexual relations with someone other than the marriage partner?" 
+* `premarsx`: Respondents' answer to the question "If a man and woman have sex relations before marriage, do you think it is always wrong, almost always wrong, wrong only sometimes, or not wrong at all?"
+
+#### Transformation
+I omit "OTHER" level in `xmarsex` and `premarsx`  because they have 0 record.
+
+I encode `year` into `decade` to smooth the error and make it convenient for visualization.
+
+There are many missing values, I will omit these missing values when calculate proportions.
+```{r,echo=FALSE}
+gss$decade <- "NULL"
+gss[gss$year < 1980, "decade"] <- "1970s"
+gss[gss$year < 1990 & gss$year >= 1980, "decade"] <- "1980s"
+gss[gss$year < 2000 & gss$year >= 1990, "decade"] <- "1990s"
+gss[gss$year < 2010 & gss$year >= 2000, "decade"] <- "2000s"
+gss[gss$year >= 2010, "decade"] <- "2010s"
+gss$decade <- factor(gss$decade, levels = c("1970s", "1980s", "1990s", "2000s", "2010s"), order = T)
+gss$xmarsex <- factor(gss$xmarsex)
+gss$premarsx <- factor(gss$premarsx)
+summary(gss[ ,c("xmarsex", "degree", "decade", "premarsx")])
+```
+
+## 3.1 Is `xmarsex` independent with `degree`?
+
+```{r,echo=FALSE,fig.width=10}
+xmarsex.degree <- gss[ ,c("decade", "xmarsex", "degree")]
+
+knitr::kable(table(gss$xmarsex, gss$degree), caption = "XMARSEX V.S DEGREE", align = "c")
+
+p1 <- ggplot(na.omit(xmarsex.degree), aes(x = degree, fill = xmarsex)) + geom_bar(position = "fill")+ scale_fill_manual(values=c("Not Wrong At All"="#cbc9e2","Sometimes Wrong"="#9e9ac8","Almst Always Wrg"="#756bb1","Always Wrong"="#54278f")) + ggtitle("XMARSEX V.S DEGREE") + coord_flip() + ylab("prop") + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2, byrow=T))
+
+premarsx.degree <- gss[ ,c("decade", "premarsx", "degree")]
+
+p2 <- ggplot(na.omit(premarsx.degree), aes(x = degree, fill = premarsx)) + geom_bar(position = "fill")+ scale_fill_manual(values=c("Not Wrong At All"="#fdbe85","Sometimes Wrong"="#fd8d3c","Almst Always Wrg"="#e6550d","Always Wrong"="#a63603")) + ggtitle("PREMARSX V.S DEGREE") + coord_flip() + ylab("prop") + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2, byrow=T))
+
+grid.arrange(p1, p2, ncol = 2)
+```
+
+#### Exploratory Data Analysis
+From the plot of `XMARSEX V.S DEGREE` we can see that there seems like a relationship between education degree and respondents' attitude to "sex with person other than spouses": the higher education level, the less people regard "ALWAYS WRONG". This means more educated people will be more acceptable for extramarital sex.
+
+For `premarsx`, although the proportions of four options are different with `xmarsex`, there still is a clear relationship between these options and five degree levels.
+
+#### Inference
+##### Hypothesis
+  * H0 (Null Hypothesis): Education degree and attitude to sex with other than spouses are __independent__. 
+  * HA (Alternative Hypothesis): Education degree and attitude to sex with other than spouses are __dependent__.
+
+##### Check Conditions
+* Independence: This is a random sampling survey and n = 33397 (omit NA) is less than 10% of population of U.S. Also, each respondents can only choose one answer. The conditions for independence are satisfied.
+* Sample Size: The least number in table is 52, so each particular scenario have more than 5 cases. The condition for sample size is satisfied.
+
+##### Method
+This is a test for independence between two categorical variables (each has more than 2 levels), so __chi-square independence test__ will be applied.
+
+##### Perform Inference
+Here I use the `inference` function from the course "Data Analysis and Statistical Inference", which is very convenient to perform statistical test.
+```{r}
+inference(y = gss$xmarsex, x = gss$degree, est = "proportion", type = "ht", method = "theoretical",alternative = 'greater', eda_plot = F, sum_stats = F, inf_plot = F)
+```
+
+##### Interpret Results
+The p-value is so small, so we can concluded that education degree and the attitude to "sex with other than spouse"" are **dependent**.
+
+## 3.2 Does `xmarsex` significantly changed over time?
+```{r,fig.width=8}
+xmarsex.decade <- data.frame(prop.table(table(gss$xmarsex, gss$decade),2))
+colnames(xmarsex.decade) <- c("xmarsex", "decade", "prop")
+
+knitr::kable(table(gss$xmarsex, gss$decade), caption = "XMARSEX V.S DECADE", align = "c")
+
+p3 <- ggplot(xmarsex.decade, aes(x = decade, y = prop, group = xmarsex)) + geom_line(aes(color = xmarsex),size=2) + scale_color_manual(values=c("Not Wrong At All"="#cbc9e2","Sometimes Wrong"="#9e9ac8","Almst Always Wrg"="#756bb1","Always Wrong"="#54278f")) + ggtitle("XMARSEX V.S DECADE") + theme(legend.position = "bottom") + guides(col= guide_legend(ncol=2)) + scale_y_continuous(limits = c(0,1))
+
+premarsx.decade <- data.frame(prop.table(table(gss$premarsx, gss$decade),2))
+colnames(premarsx.decade) <- c("premarsx", "decade", "prop")
+p4 <- ggplot(premarsx.decade, aes(x = decade, y = prop, group = premarsx)) + geom_line(aes(color = premarsx), linetype = 2, size=1.5) + scale_color_manual(values=c("Not Wrong At All"="#fdbe85","Sometimes Wrong"="#fd8d3c","Almst Always Wrg"="#e6550d","Always Wrong"="#a63603")) + ggtitle("PREMARSX V.S DECADE") + theme(legend.position = "bottom") + guides(col= guide_legend(ncol=2)) + scale_y_continuous(limits = c(0,1))
+
+grid.arrange(p3, p4, ncol = 2)
+```
+
+#### Exploratory Data Analysis
+This is a quite interesting part. We all known that Americans are much more open to sex after Sexual Revolution for some controversial topics, such as homosexual, abortion, including premarital sex in this study. But the plot of `XMARSEX V.S DECADE` implies that Americans become more conservative for extramarital sex. Is this change significantly? Let me test it!
+
+#### Inference
+Here I will perform a statistical test to compare difference between two proportions of `xmarsex`: proportion of "Always Wrong" in 1970s and proportion of "Always Wrong" in 2010s. This test requires the variable has binary results, so I will encode all other options except "Always Wrong" into an aggregated level "Not Always Wrong".
+
+We assume there is no change between two proportions, so the difference will be 0. The alternative will be 1970s' proportion less than 2010s', so the difference will be less than 0.
+
+A different condition for this test is 10-sucess-10-failure, which is also satisfied in this context. So let's look at the test result!
+
+```{r}
+xmarsex.ci <- na.omit(subset(gss, decade == "1970s" | decade == "2010s")[,c("xmarsex", "decade")])
+xmarsex.ci$decade <- factor(xmarsex.ci$decade)
+levels(xmarsex.ci$xmarsex) <- c(levels(xmarsex.ci$xmarsex), "Not Always Wrong")
+xmarsex.ci[xmarsex.ci$xmarsex != "Always Wrong", ]$xmarsex <- "Not Always Wrong"
+xmarsex.ci$xmarsex <- factor(xmarsex.ci$xmarsex)
+inference(xmarsex.ci$xmarsex, xmarsex.ci$decade, est = "proportion", type = "ht", method = "theoretical", success = "Always Wrong", alternative = "less", null = 0, eda_plot = F, inf_plot=F, sum_stats = T)
+```
+
+We got a 0 p-value which is pretty small, so we can confirm that the proportion of "Always Wrong" in 2010s is significantly increased from 1970s.
+
+You may notice that the proportion of "Always Wrong" in 2010s dropped a little from 2000s. But I will show you that this decrease actually is not significant. So let's perform a similar test on 2000s and 2010s, and this time the alternative will be "2000s' proportion is greater than 2010s'".
+
+```{r}
+xmarsex.ci <- na.omit(subset(gss, decade == "2000s" | decade == "2010s")[,c("xmarsex", "decade")])
+xmarsex.ci$decade <- factor(xmarsex.ci$decade)
+levels(xmarsex.ci$xmarsex) <- c(levels(xmarsex.ci$xmarsex), "Not Always Wrong")
+xmarsex.ci[xmarsex.ci$xmarsex != "Always Wrong", ]$xmarsex <- "Not Always Wrong"
+xmarsex.ci$xmarsex <- factor(xmarsex.ci$xmarsex)
+inference(xmarsex.ci$xmarsex, xmarsex.ci$decade, est = "proportion", type = "ht", method = "theoretical", success = "Always Wrong", alternative = "greater", null = 0, eda_plot = F, inf_plot=F, sum_stats = T)
+```
+
+The result tells us that p-value is 0.08, which is higher than 5% significance level. So we will not reject the null hypothesis, which means that it is not a significant decrease of proportion of "Always Wrong" from 2000s to 2010s. A possible reason of this drop is that there are only two surveys in 2010s because we are in 2010s now. The unfinished decade may be different with others.
+
+#### Interpretation
+I perform tests between each adjacent decades (1970s - 2000s) and the results tell me that all of them are significantly rises from previous decade. Based on these inferences we can say that the proportion of Americans who think it is always wrong to sex with person other than spouse is increasing significantly over recent 40 decades.
+
+## 3.3 `xmarsex` v.s `premarsx`
+```{r}
+colnames(xmarsex.decade)[1] <- "option"
+colnames(premarsx.decade)[1] <- "option"
+xpre.decade <- rbind(cbind(xmarsex.decade, question = "xmarsex", color = rep(rev(c("Not Wrong At All"="#fdbe85","Sometimes Wrong"="#fd8d3c","Almst Always Wrg"="#e6550d","Always Wrong"="#a63603")), 5)), cbind(premarsx.decade, question = "premarsx", color = rep(rev(c("Not Wrong At All"="#cbc9e2","Sometimes Wrong"="#9e9ac8","Almst Always Wrg"="#756bb1","Always Wrong"="#54278f")), 5)))
+
+ggplot(xpre.decade, aes(x = decade, y = prop, fill = interaction(question, option))) + geom_bar(stat = "identity", position = position_dodge(), color = "black") + facet_grid(.~option) + scale_fill_manual(breaks=c("xmarsex.Always Wrong","xmarsex.Almst Always Wrg", "xmarsex.Sometimes Wrong", "xmarsex.Not Wrong At All", "premarsx.Always Wrong","premarsx.Almst Always Wrg", "premarsx.Sometimes Wrong", "premarsx.Not Wrong At All"), name = "xmarsex\n\npremarsx", values=c("#54278f","#a63603","#756bb1", "#e6550d","#9e9ac8", "#fd8d3c","#cbc9e2","#fdbe85"), labels = c("Always Wrong","Almst Always Wrg", "Sometimes Wrong", "Not Wrong At All", "Always Wrong","Almst Always Wrg", "Sometimes Wrong", "Not Wrong At All")) + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2, byrow = T)) + theme(axis.text.x = element_text(angle = 30, hjust = 0.5))
+```
+
+This is a nice graph to compare each options of `xmarsex` and `premarsx` alongside the `decade`. We can see that Americans' attitudes toward these two questions run to two complete different directions: more and more people become unacceptable about extramarital sex, while they give more tolerance to premarital sex.
+
+And here I'd like to calculate the 95% confidence interval for the most recent (2012) proportion of people who think it is always wrong to sex with person other than spouse.
+```{r}
+xmarsex.2012 <- na.omit(subset(gss, year == "2012")[,c("xmarsex", "year")])
+levels(xmarsex.2012$xmarsex) <- c(levels(xmarsex.2012$xmarsex), "Not Always Wrong")
+xmarsex.2012[xmarsex.2012$xmarsex != "Always Wrong", ]$xmarsex <- "Not Always Wrong"
+xmarsex.2012$xmarsex <- factor(xmarsex.2012$xmarsex)
+inference(xmarsex.2012$xmarsex, est = "proportion", type = "ci", method = "theoretical", success = "Always Wrong", alternative = "greater", null = 0, eda_plot = F, inf_plot=F, sum_stats = T)
+```
+
+So we are 95% confident that 77.7% to 82.1% of all Americans in 2012 think it is always wrong to have extramarital sex.
+
+And here is 95% confidence interval for what percent of Americans think it is not wrong at all to have sex before marriage.
+```{r}
+premarsx.2012 <- na.omit(subset(gss, year == "2012")[,c("premarsx", "year")])
+levels(premarsx.2012$premarsx) <- c(levels(premarsx.2012$premarsx), "Wrong")
+premarsx.2012[premarsx.2012$premarsx != "Not Wrong At All", ]$premarsx <- "Wrong"
+premarsx.2012$premarsx <- factor(premarsx.2012$premarsx)
+inference(premarsx.2012$premarsx, est = "proportion", type = "ci", method = "theoretical", success = "Not Wrong At All", alternative = "greater", null = 0, eda_plot = F, inf_plot=F, sum_stats = T)
+```
+
+So we are 95% confident that 53.4% to 58.8% of all Americans in 2012 think it is not wrong at all to have premarital sex.
+
+Well, there could be different interpretations of this phenomenon, but I will treat it as a positive sign. It shows us that the proportion of Americans who take marriage seriously is increasing, and reaches nearly 80% in recent years. The same time, after rising in 40 years, more than half of Americans regard premarital sex as a pretty normal behavior.
+
+## 4. Conclusion
+
+Through this study I find education degree is a factor influenced Americans' attitude to sex, and how Americans change their thought about sex during these decades. Also the trends of the change are quite interesting. Although I can not prove all these are caused by Sexual Revolution, I think there still exists some relationship between them.
+
+#### Concern
+A concern about test for independence of `degree` and `xmarsex` is that I did not consider the significantly changes of sex attitude and I aggregate data from 1972 to 2012. It might be more convincible if I use last decade data (2002 - 2012).
+
+Another concern comes from the frequency of GSS. GSS is done once per year from 1972 to 1994 (except for 1979), after that is performed every two years. So this difference in frequency will cause the sample size varies a lot for different decades. And 2010s is on going so the sample size of it is much smaller than before.
+
+## 5. Reference
+* [Data Cookbook](https://d396qusza40orc.cloudfront.net/statistics%2Fproject%2Fgss1.html)
+* [GSS Data](http://d396qusza40orc.cloudfront.net/statistics/project/gss.Rdata)
+* [Inference Function](http://bit.ly/dasi_inference)
+* [Data Cookbook](https://d396qusza40orc.cloudfront.net/statistics%2Fproject%2Fgss1.html)
+
+```{r,eval = F}
+expected <- table[1:2, 6]/table[3,6]
+expected <- rbind(round(expected[1] * table[3, 1:5]), round(expected[2] * table[3, 1:5]))
+chi.square <- sum((expected - table[1:2, 1:5])^2/expected)
+df <- (2-1)*(5-1)
+pchisq(chi.square, df, lower.tail = F)
+
+x <- gss %>%
+  filter(!is.na(xmarsex) & !is.na(premarsx)) %>%
+  group_by(xmarsex) %>%
+  summarise (n = n()) %>%
+  mutate(freq = n / sum(n),
+         question = "xmarsex")
+
+pre <- gss %>%
+  filter(!is.na(premarsx) & !is.na(xmarsex)) %>%
+  group_by(premarsx) %>%
+  summarise (n = n()) %>%
+  mutate(freq = n / sum(n),
+         question = "premarsx")
+colnames(x)[1] <- "option"
+colnames(pre)[1] <- "option"
+xpre <- rbind(x, pre)
+
+ggplot(xpre, aes(x = option, y = freq, fill = question)) + geom_bar(stat = "identity", position = position_dodge(), color = "black") + theme(axis.text.x = element_text(angle = 10, hjust = 0.5)) + ggtitle("XMARSEX V.S PREMARSX") + scale_fill_manual(values=c("premarsx"="#f1a340","xmarsex"="#998ec3"))
+
+ggplot(xpre.decade) + geom_line(aes(x = decade, y = prop, color = interaction(question,option), group = interaction(question,option), linetype = interaction(question,option), size = interaction(question,option))) + 
+  scale_color_manual(breaks=c("xmarsex.Always Wrong","xmarsex.Almst Always Wrg", "xmarsex.Sometimes Wrong", "xmarsex.Not Wrong At All", "premarsx.Always Wrong","premarsx.Almst Always Wrg", "premarsx.Sometimes Wrong", "premarsx.Not Wrong At All"), name = "xmarsex & premarsx",values=c("#54278f","#a63603","#756bb1", "#e6550d","#9e9ac8", "#fd8d3c","#cbc9e2","#fdbe85")) + 
+  scale_linetype_manual(breaks=c("xmarsex.Always Wrong","xmarsex.Almst Always Wrg", "xmarsex.Sometimes Wrong", "xmarsex.Not Wrong At All", "premarsx.Always Wrong","premarsx.Almst Always Wrg", "premarsx.Sometimes Wrong", "premarsx.Not Wrong At All"), name = "xmarsex & premarsx",values=rep(c(1,2),4)) + 
+  scale_size_manual(breaks=c("xmarsex.Always Wrong","xmarsex.Almst Always Wrg", "xmarsex.Sometimes Wrong", "xmarsex.Not Wrong At All", "premarsx.Always Wrong","premarsx.Almst Always Wrg", "premarsx.Sometimes Wrong", "premarsx.Not Wrong At All"), name = "xmarsex & premarsx", values=rep(c(2,1),4)) + ggtitle("PREMARSX V.S DECADE")
+```
+
